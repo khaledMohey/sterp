@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Standard ERP
 
-## Getting Started
+نظام ERP عربي: مخزن بالدفعات، شراء/بيع، كاش وتقسيط، عملاء، موردين، خزنة، تقارير.
 
-First, run the development server:
+## تشغيل محلي
 
 ```bash
+npm install
+npm run db:setup
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+افتح http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## رفع على Vercel (بدون لوجن)
 
-## Learn More
+التطبيق **مفيهوش تسجيل دخول**. لو Vercel طلب لوجن، ده حماية النشر من Vercel نفسها — لازم تتقفل.
 
-To learn more about Next.js, take a look at the following resources:
+### 1) قاعدة بيانات سحابية (Turso مجاني)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+SQLite المحلي مش بيشتغل على Vercel. استخدم [Turso](https://turso.tech):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# تثبيت CLI
+npm i -g turso
 
-## Deploy on Vercel
+turso auth login
+turso db create standarderp
+turso db show standarderp --url
+turso db tokens create standarderp
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ادفع الـ schema للقاعدة:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# مؤقتاً في التيرمنال (Windows PowerShell):
+$env:DATABASE_URL="libsql://YOUR-DB.turso.io"
+$env:TURSO_AUTH_TOKEN="YOUR_TOKEN"
+npx prisma db push
+```
+
+### 2) مشروع Vercel
+
+1. ارفع الكود على GitHub
+2. Import في [vercel.com](https://vercel.com) → Framework: Next.js
+3. Environment Variables:
+   - `DATABASE_URL` = `libsql://....turso.io`
+   - `TURSO_DATABASE_URL` = نفس الرابط
+   - `TURSO_AUTH_TOKEN` = التوكن
+4. Deploy
+
+### 3) إلغاء طلب اللوجن (مهم)
+
+في مشروع Vercel:
+
+**Settings → Deployment Protection →** اختَر **Disabled**  
+(أو اطفي Vercel Authentication / Standard Protection)
+
+كده العميل يفتح اللينك مباشرة من غير ما يطلب حساب Vercel.
