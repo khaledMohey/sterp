@@ -11,12 +11,7 @@ function createPrismaClient() {
 
   if (url && authToken) {
     const adapter = new PrismaLibSQL({ url, authToken });
-    return new PrismaClient({
-      adapter,
-      datasources: {
-        db: { url },
-      },
-    });
+    return new PrismaClient({ adapter });
   }
 
   // Never throw here — Vercel build imports modules without Turso URL.
