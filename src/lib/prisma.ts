@@ -8,33 +8,40 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const { url, authToken } = resolveTursoConfig();
-  const onVercel = process.env.VERCEL === "1";
 
   if (url && authToken) {
     const adapter = new PrismaLibSQL({ url, authToken });
     return new PrismaClient({
       adapter,
-      // Prevent Prisma from using DATABASE_URL=file:./dev.db on Vercel
       datasources: {
         db: { url },
       },
     });
   }
 
-  if (onVercel) {
-    throw new Error(
-      `Turso غير مضبوط. TURSO_DATABASE_URL لازم شبه: libsql://xxxx.turso.io ` +
-        `(الحالي: ${url || "فاضي"}) و TURSO_AUTH_TOKEN ${authToken ? "موجود" : "ناقص"}`
-    );
-  }
-
+  // Never throw here — Vercel build imports modules without Turso URL.
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getClient() {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+/**
+ * Lazy Prisma proxy so `next build` can import server modules
+ * without requiring Turso env vars at build time.
+ */
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getClient();
+    const value = Reflect.get(client, prop, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export { resolveTursoConfig } from "./turso-config";
