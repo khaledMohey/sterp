@@ -1,6 +1,4 @@
 import { createClient } from "@libsql/client";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS "Product" (
@@ -143,18 +141,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "SalesInvoice_number_key" ON "SalesInvoice"("n
 CREATE UNIQUE INDEX IF NOT EXISTS "CashAccount_name_key" ON "CashAccount"("name");
 `;
 
-function resolveTurso() {
-  const turso = (process.env.TURSO_DATABASE_URL || "").trim();
-  const db = (process.env.DATABASE_URL || "").trim();
-  const url =
-    turso.startsWith("libsql://") || turso.startsWith("https://")
-      ? turso
-      : db.startsWith("libsql://") || db.startsWith("https://")
-        ? db
-        : "";
-  const authToken = (process.env.TURSO_AUTH_TOKEN || "").trim();
-  return { url, authToken };
-}
+import { resolveTursoConfig } from "./turso-config";
 
 const globalForSchema = globalThis as unknown as {
   tursoSchemaReady?: boolean;
@@ -169,7 +156,7 @@ export async function ensureTursoSchema() {
   }
 
   globalForSchema.tursoSchemaPromise = (async () => {
-    const { url, authToken } = resolveTurso();
+    const { url, authToken } = resolveTursoConfig();
     if (!url || !authToken) return;
 
     const client = createClient({ url, authToken });
@@ -179,7 +166,7 @@ export async function ensureTursoSchema() {
       globalForSchema.tursoSchemaReady = true;
       return;
     } catch {
-      // table missing — apply schema
+      // apply schema
     }
 
     const statements = SCHEMA_SQL.split(";")
@@ -204,9 +191,4 @@ export async function ensureTursoSchema() {
   } finally {
     globalForSchema.tursoSchemaPromise = undefined;
   }
-}
-
-/** Optional local helper for CLI script */
-export function readSchemaFile() {
-  return readFileSync(join(process.cwd(), "prisma", "turso-schema.sql"), "utf8");
 }
