@@ -3,7 +3,7 @@ import { getDashboardStats } from "@/lib/actions";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { PageHeader, StatCard, Panel, Table, Empty, Btn } from "@/components/ui";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 10;
 
 export default async function HomePage() {
   const s = await getDashboardStats();

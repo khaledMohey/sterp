@@ -3,7 +3,7 @@ import { getPurchaseInvoices } from "@/lib/actions";
 import { formatMoney, formatDate, paymentMethodLabel } from "@/lib/utils";
 import { PageHeader, Panel, Table, Empty, Btn } from "@/components/ui";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 10;
 
 export default async function PurchasesPage() {
   const invoices = await getPurchaseInvoices();

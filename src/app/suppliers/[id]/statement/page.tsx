@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getSupplierStatement } from "@/lib/actions";
 import { StatementView } from "@/components/StatementView";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function SupplierStatementPage({
   params,

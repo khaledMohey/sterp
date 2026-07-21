@@ -3,7 +3,7 @@ import { getProducts, getSuppliers } from "@/lib/actions";
 import { PageHeader, Btn } from "@/components/ui";
 import { PurchaseForm } from "@/components/PurchaseForm";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function NewPurchasePage() {
   const [suppliers, products] = await Promise.all([

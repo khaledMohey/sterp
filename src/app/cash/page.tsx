@@ -3,7 +3,7 @@ import { formatMoney, formatDate } from "@/lib/utils";
 import { PageHeader, Panel, Table, Empty, StatCard } from "@/components/ui";
 import { CashAccountForm, CashTxForm } from "@/components/CashForms";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 10;
 
 export default async function CashPage() {
   let accounts = await getCashAccounts();

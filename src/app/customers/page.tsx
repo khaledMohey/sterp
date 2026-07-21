@@ -3,7 +3,7 @@ import { getCustomers } from "@/lib/actions";
 import { PageHeader, Panel, Table, Empty } from "@/components/ui";
 import { PartyForm, DeletePartyButton } from "@/components/PartyForm";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 10;
 
 export default async function CustomersPage() {
   const customers = await getCustomers();

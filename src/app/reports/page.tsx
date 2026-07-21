@@ -4,7 +4,7 @@ import { formatMoney, formatDate, paymentMethodLabel } from "@/lib/utils";
 import { PageHeader, Panel, Table, Empty, StatCard } from "@/components/ui";
 import { ReportTypeTabs, type ReportTab } from "@/components/ReportTypeTabs";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 10;
 
 const titles: Record<ReportType, { title: string; subtitle: string }> = {
   sales: {

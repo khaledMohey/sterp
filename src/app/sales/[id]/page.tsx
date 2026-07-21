@@ -5,7 +5,7 @@ import { formatMoney, formatDate, paymentMethodLabel } from "@/lib/utils";
 import { PageHeader, Panel, Table, Btn, StatCard } from "@/components/ui";
 import { InstallmentsPanel } from "@/components/InstallmentsPanel";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function SalesDetailPage({
   params,
