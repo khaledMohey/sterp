@@ -20,18 +20,9 @@ function resolveTursoUrl() {
 function createPrismaClient() {
   const tursoUrl = resolveTursoUrl();
   const authToken = (process.env.TURSO_AUTH_TOKEN || "").trim();
-  const onVercel = process.env.VERCEL === "1";
 
-  if (onVercel && !tursoUrl) {
-    throw new Error(
-      "على Vercel لازم TURSO_DATABASE_URL (libsql://...) و TURSO_AUTH_TOKEN. DATABASE_URL خليه file:./dev.db"
-    );
-  }
-
-  if (tursoUrl) {
-    if (!authToken) {
-      throw new Error("TURSO_AUTH_TOKEN ناقص — انسخه من لوحة Turso.");
-    }
+  // Prefer Turso when configured (runtime on Vercel)
+  if (tursoUrl && authToken) {
     const adapter = new PrismaLibSQL({
       url: tursoUrl,
       authToken,
@@ -39,6 +30,7 @@ function createPrismaClient() {
     return new PrismaClient({ adapter });
   }
 
+  // Local / build-time fallback — never throw here (breaks `next build` on Vercel)
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
@@ -47,3 +39,7 @@ function createPrismaClient() {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+export function isTursoConfigured() {
+  return Boolean(resolveTursoUrl() && process.env.TURSO_AUTH_TOKEN);
+}
