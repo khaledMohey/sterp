@@ -199,10 +199,11 @@ export async function deleteSupplier(id: string) {
 export async function getPurchaseInvoices() {
   return prisma.purchaseInvoice.findMany({
     include: {
-      supplier: true,
-      items: { include: { product: true } },
+      supplier: { select: { id: true, name: true, phone: true } },
+      items: { select: { id: true } },
     },
     orderBy: { date: "desc" },
+    take: 100,
   });
 }
 
@@ -367,10 +368,11 @@ export async function createPurchaseInvoice(input: {
 export async function getSalesInvoices() {
   return prisma.salesInvoice.findMany({
     include: {
-      customer: true,
-      items: { include: { product: true } },
+      customer: { select: { id: true, name: true, phone: true } },
+      items: { select: { id: true } },
     },
     orderBy: { date: "desc" },
+    take: 100,
   });
 }
 
@@ -762,9 +764,9 @@ export async function getDashboardStats() {
     purchaseAgg,
     salesAgg,
     cash,
-    lowStock,
-    salesInvoices,
-    purchaseInvoices,
+    batchRows,
+    salesByPay,
+    purchaseByPay,
     salesInstallments,
     purchaseInstallments,
   ] = await Promise.all([
@@ -780,63 +782,74 @@ export async function getDashboardStats() {
       _count: true,
     }),
     prisma.cashAccount.aggregate({ _sum: { balance: true } }),
-    prisma.product.findMany({
-      include: { batches: { where: { remainingQty: { gt: 0 } } } },
-    }),
-    prisma.salesInvoice.findMany({
+    prisma.batch.findMany({
+      where: { remainingQty: { gt: 0 } },
       select: {
-        id: true,
-        number: true,
-        paymentMethod: true,
-        total: true,
-        paid: true,
-        interestAmount: true,
-        customer: { select: { name: true } },
+        remainingQty: true,
+        purchasePrice: true,
+        productId: true,
+        product: { select: { id: true, name: true } },
       },
     }),
-    prisma.purchaseInvoice.findMany({
-      select: {
-        id: true,
-        number: true,
-        paymentMethod: true,
-        total: true,
-        paid: true,
-        interestAmount: true,
-        supplier: { select: { name: true } },
-      },
+    prisma.salesInvoice.groupBy({
+      by: ["paymentMethod"],
+      _count: true,
+    }),
+    prisma.purchaseInvoice.groupBy({
+      by: ["paymentMethod"],
+      _count: true,
     }),
     prisma.salesInstallment.findMany({
       where: { status: { not: "paid" } },
-      include: {
-        invoice: { include: { customer: true } },
+      select: {
+        id: true,
+        sequence: true,
+        dueDate: true,
+        amount: true,
+        paidAmount: true,
+        invoiceId: true,
+        invoice: {
+          select: { number: true, customer: { select: { name: true } } },
+        },
       },
       orderBy: { dueDate: "asc" },
-      take: 8,
+      take: 6,
     }),
     prisma.purchaseInstallment.findMany({
       where: { status: { not: "paid" } },
-      include: {
-        invoice: { include: { supplier: true } },
+      select: {
+        id: true,
+        sequence: true,
+        dueDate: true,
+        amount: true,
+        paidAmount: true,
+        invoiceId: true,
+        invoice: {
+          select: { number: true, supplier: { select: { name: true } } },
+        },
       },
       orderBy: { dueDate: "asc" },
-      take: 8,
+      take: 6,
     }),
   ]);
 
-  const stockValue = await prisma.batch.findMany({
-    where: { remainingQty: { gt: 0 } },
-  });
-  const inventoryValue = stockValue.reduce(
+  const inventoryValue = batchRows.reduce(
     (s, b) => s + b.remainingQty * b.purchasePrice,
     0
   );
 
-  const low = lowStock
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      qty: p.batches.reduce((s, b) => s + b.remainingQty, 0),
-    }))
+  const qtyByProduct = new Map<string, { id: string; name: string; qty: number }>();
+  for (const b of batchRows) {
+    const cur = qtyByProduct.get(b.productId);
+    if (cur) cur.qty += b.remainingQty;
+    else
+      qtyByProduct.set(b.productId, {
+        id: b.product.id,
+        name: b.product.name,
+        qty: b.remainingQty,
+      });
+  }
+  const low = [...qtyByProduct.values()]
     .filter((p) => p.qty > 0 && p.qty <= 5)
     .slice(0, 8);
 
@@ -846,18 +859,14 @@ export async function getDashboardStats() {
   const purchaseTotal = purchaseAgg._sum.total ?? 0;
   const purchasePaid = purchaseAgg._sum.paid ?? 0;
 
-  const salesCashCount = salesInvoices.filter(
-    (i) => i.paymentMethod === "cash"
-  ).length;
-  const salesInstallmentCount = salesInvoices.filter(
-    (i) => i.paymentMethod === "installment"
-  ).length;
-  const purchaseCashCount = purchaseInvoices.filter(
-    (i) => i.paymentMethod === "cash"
-  ).length;
-  const purchaseInstallmentCount = purchaseInvoices.filter(
-    (i) => i.paymentMethod === "installment"
-  ).length;
+  const salesCashCount =
+    salesByPay.find((g) => g.paymentMethod === "cash")?._count ?? 0;
+  const salesInstallmentCount =
+    salesByPay.find((g) => g.paymentMethod === "installment")?._count ?? 0;
+  const purchaseCashCount =
+    purchaseByPay.find((g) => g.paymentMethod === "cash")?._count ?? 0;
+  const purchaseInstallmentCount =
+    purchaseByPay.find((g) => g.paymentMethod === "installment")?._count ?? 0;
 
   const upcomingInstallments = [
     ...salesInstallments.map((i) => ({
@@ -882,7 +891,7 @@ export async function getDashboardStats() {
     })),
   ]
     .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-    .slice(0, 10);
+    .slice(0, 8);
 
   return {
     products,
@@ -915,38 +924,50 @@ export async function getReportsData() {
     await Promise.all([
       prisma.purchaseInvoice.findMany({
         include: {
-          supplier: true,
-          items: { include: { product: true } },
-          installments: { orderBy: { sequence: "asc" } },
+          supplier: { select: { id: true, name: true } },
+          items: { select: { id: true } },
         },
         orderBy: { date: "desc" },
+        take: 100,
       }),
       prisma.salesInvoice.findMany({
         include: {
-          customer: true,
-          items: { include: { product: true } },
-          installments: { orderBy: { sequence: "asc" } },
+          customer: { select: { id: true, name: true } },
+          items: { select: { id: true } },
         },
         orderBy: { date: "desc" },
+        take: 100,
       }),
       prisma.batch.findMany({
         where: { remainingQty: { gt: 0 } },
-        include: { product: true },
+        include: { product: { select: { id: true, name: true } } },
         orderBy: { purchaseDate: "asc" },
+        take: 200,
       }),
       prisma.cashTransaction.findMany({
-        include: { account: true },
+        include: { account: { select: { id: true, name: true } } },
         orderBy: { date: "desc" },
+        take: 100,
       }),
       prisma.salesInstallment.findMany({
         where: { status: { not: "paid" } },
-        include: { invoice: { include: { customer: true } } },
+        include: {
+          invoice: {
+            select: { id: true, number: true, customer: { select: { name: true } } },
+          },
+        },
         orderBy: { dueDate: "asc" },
+        take: 50,
       }),
       prisma.purchaseInstallment.findMany({
         where: { status: { not: "paid" } },
-        include: { invoice: { include: { supplier: true } } },
+        include: {
+          invoice: {
+            select: { id: true, number: true, supplier: { select: { name: true } } },
+          },
+        },
         orderBy: { dueDate: "asc" },
+        take: 50,
       }),
     ]);
 

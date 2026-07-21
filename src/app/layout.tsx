@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Arabic, Tajawal } from "next/font/google";
 import { Sidebar } from "@/components/Sidebar";
-import { ensureTursoSchema } from "@/lib/ensure-schema";
 import "./globals.css";
 
 const display = Tajawal({
   variable: "--font-display",
   subsets: ["arabic"],
-  weight: ["500", "700", "800"],
+  weight: ["700"],
+  display: "swap",
+  preload: true,
 });
 
 const body = IBM_Plex_Sans_Arabic({
   variable: "--font-body",
   subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "600"],
+  display: "swap",
+  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -21,17 +24,11 @@ export const metadata: Metadata = {
   description: "نظام إدارة المخزن والفواتير بالدفعات",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  try {
-    await ensureTursoSchema();
-  } catch (err) {
-    console.error("[ensureTursoSchema]", err);
-  }
-
   return (
     <html
       lang="ar"

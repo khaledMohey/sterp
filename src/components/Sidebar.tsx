@@ -107,15 +107,16 @@ export function Sidebar() {
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
-                  active
-                    ? "bg-white/15 text-white shadow-sm"
-                    : "text-white/70 hover:bg-white/8 hover:text-white"
-                }`}
-              >
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={true}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
+                active
+                  ? "bg-white/15 text-white shadow-sm"
+                  : "text-white/70 hover:bg-white/8 hover:text-white"
+              }`}
+            >
                 <span className="w-5 text-center text-white/50">{item.icon}</span>
                 {item.label}
               </Link>
